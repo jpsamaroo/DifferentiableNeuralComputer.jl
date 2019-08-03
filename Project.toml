@@ -1,0 +1,7 @@
+name = "DifferentiableNeuralComputer"
+uuid = "a75caf9e-b602-11e9-0dda-d119f611dba9"
+authors = ["Julian P Samaroo <jpsamaroo@jpsamaroo.me>"]
+version = "0.1.0"
+
+[deps]
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
