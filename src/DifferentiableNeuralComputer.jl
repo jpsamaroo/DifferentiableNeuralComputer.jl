@@ -3,7 +3,7 @@ module DifferentiableNeuralComputer
 import Flux
 import Zygote
 
-include("src/lstm.jl")
+include("lstm.jl")
 
 struct DNC end
 

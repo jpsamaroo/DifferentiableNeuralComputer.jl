@@ -19,7 +19,9 @@ end
     h′: state at previous layer (at same timestep)
     x: original input to the LSTM
 =#
-function(c::DNCLstmCell)((h, s), (h′, x))
+function(c::DNCLstmCell)((h, s), h′, x)
+    h = size(h)==size(h′) ? h : repeat(h, 1, size(x, 2)) # support for batching.
+
     i = σ.(c.Wi * [x; h; h′] .+ c.bi)
     f = σ.(c.Wf * [x; h; h′] .+ c.bf)
     s′ = f .* c.s .+ i .* tanh.(c.Ws * [x; h; h′] .+ c.bs)
