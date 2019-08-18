@@ -7,48 +7,53 @@ include("DNCLSTM.jl")
 cosine_sim(u, v) = (u'v)/(norm(u)*norm(v))
 
 # content-based addressing
-function C(M, k, β)
+"""
+    memprobdistrib(MemMat, key, keystrength)
+
+Defines a normalized probability distribution over the memory locations.
+"""
+function memprobdistrib(M, k, β)
     out = [cosine_sim(k, M[i, :]) for i in 1:size(M, 1)] .* β
     out = softmax(out)
 end
 
 struct DNC
-    M
-    L
-    readweights
-    W_w
-    u
-    p
+    MemMat       # R^{N*W}
+    LinkMat      # R^{N*N}
+    readWts      # Array of R^{W}
+    wrtWt        # (0 --> 1)^{N}
+    usageVec     # (0 --> 1)^{N}
+    precedenceWt # (0 --> 1)^{N}
 end
 
-function (dnc::DNC)(readkeys, readstrengths, k_w, β_w, erase, write, freegates, g_a, g_w, readmodes)
+function (dnc::DNC)(readkeys, readstrengths, wrtkey, wrtstrength, eraseVec, wrtVec, freeGt, allocGt, wrtGt, readmodes)
     # dynamic memory allocation
-    ψ = prod(1 .- freegates .* dnc.readweights)
-    dnc.u = (dnc.u .+ dnc.W_w .- dnc.u .* dnc.W_w) .* ψ
-    Ø = sortperm(dnc.u)
-    a = zeros(dnc.u)
-    a[Ø] .= (1 .- dnc.u[Ø]) .* cumprod([1; dnc.u[Ø]][1:end-1])
+
+    memRetVec = prod(1 .- freeGt .* dnc.readWts)  # Memory Retention Vector = [0, 1]^{N}
+    dnc.usageVec = (dnc.usageVec .+ dnc.wrtWt .- dnc.usageVec .* dnc.wrtWt) .* memRetVec
+    freelist = sortperm(dnc.usageVec)  # Z^{N}
+    allocWt = zeros(dnc.usageVec)
+    @. allocWt[freelist] = (1 - dnc.usageVec[Ø]) * cumprod([1; dnc.usageVec[Ø]][1:end-1])  # (0 --> 1)^{N}
 
     # writing
-    c_w = C(dnc.M, k_w, β_w)
-    dnc.W_w = g_w * (g_a .* a .+ (1 - g_a)*c_w)
-    dnc.M = dnc.M .* (ones(dnc.M) - dnc.W_w*erase') .+ dnc.W_w*write'
+    wrtcntWt = memprobdistrib(dnc.MemMat, wrtkey, wrtstrength) # Write content weighting = (0 --> 1)^{N}
+    dnc.wrtWt .= wrtGt * (allocGt * allocWt + (1 - allocGt)*wrtcntWt)
+    @. dnc.MemMat = dnc.MemMat * (ones(dnc.MemMat) - dnc.wrtWt*eraseVec') + dnc.wrtWt*wrtVec'
 
     # temporal linkage
-    for (i, j) in Tuple.(CartesianIndices(dnc.L))
-        if i == j dnc.L[i, j] = 0 # exclude self links
-        else dnc.L[i, j] = (1 - dnc.W_w[i] - dnc.W_w[j])*dnc.L[i, j] + dnc.W_w[i] * p[j] end
-    end
-    dnc.p = (1 - sum(dnc.W_w)) .* dnc.p .+ dnc.W_w
+    eye = Matrix{Float32}(I, size(dnc.LinkMat)...)
+    @. dnc.LinkMat = (1 - eye) * ((1 - dnc.wrtWt - dnc.wrtWt') * dnc.LinkMat + dnc.wrtWt * dnc.precedenceWt')
+
+    precedenceWt = (1 - sum(dnc.wrtWt)) .* precedenceWt .+ dnc.wrtWt
 
     # reading
-    f = [dnc.L * W_r for W_r in dnc.readweights]
-    b = [dnc.L' * W_r for W_r in dnc.readweights]
-    c_r = C.([dnc.M], readkeys, readstrengths)
+    forwardWts = [dnc.LinkMat * readWt for readWt in dnc.readWts]
+    backwardWts = [dnc.LinkMat' * readWt for readWt in dnc.readWts]
+    readcntWts = memprobdistrib.([dnc.MemMat], readkeys, readstrengths) # Read content weightings
 
-    dnc.readweights = [π[1].*b .+ π[2].*c .+ π[3].*f for (π, b, f) in (readmodes, b, f)]
-    readvecs = [dnc.M' * W_r for W_r in dnc.readweights]
-    
+    dnc.readWts = [π[1].*b .+ π[2].*c .+ π[3].*f for (π, b, f) in (readmodes, backwardWts, forwardWts)]
+    readvecs = [dnc.MemMat' * W_r for W_r in dnc.readWts]
+
     return(readvecs)
 end
 
