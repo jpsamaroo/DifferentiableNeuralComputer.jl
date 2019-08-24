@@ -54,7 +54,7 @@ function (dnc::DNC)(readkeys, readstrengths, wrtkey, wrtstrength, eraseVec, wrtV
     backwardWts = [dnc.LinkMat' * readWt for readWt in dnc.readWts]
     readcntWts = memprobdistrib.([dnc.MemMat], readkeys, readstrengths) # Read content weightings
 
-    dnc.readWts = [π[1].*b .+ π[2].*c .+ π[3].*f for (π, b, f) in (readmodes, backwardWts, forwardWts)]
+    dnc.readWts = [π[1].*b .+ π[2].*readcntWts .+ π[3].*f for (π, b, f) in (readmodes, backwardWts, forwardWts)]
     readvecs = [dnc.MemMat' * W_r for W_r in dnc.readWts]
 
     return(readvecs)
