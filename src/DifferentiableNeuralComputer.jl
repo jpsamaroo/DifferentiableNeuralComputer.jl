@@ -33,7 +33,7 @@ function (dnc::DNC)(readkeys, readstrengths, wrtkey, wrtstrength, eraseVec, wrtV
     dnc.usageVec = (dnc.usageVec .+ dnc.wrtWt .- dnc.usageVec .* dnc.wrtWt) .* memRetVec
     freelist = sortperm(dnc.usageVec)  # Z^{N}
     allocWt = zeros(dnc.usageVec)
-    @. allocWt[freelist] = (1 - dnc.usageVec[Ø]) * cumprod([1; dnc.usageVec[Ø]][1:end-1])  # (0, 1)^{N}
+    @. allocWt[freelist] = (1 - dnc.usageVec[freelist]) * cumprod([1; dnc.usageVec[freelist]][1:end-1])  # (0, 1)^{N}
 
     # writing
     wrtcntWt = memprobdistrib(dnc.MemMat, wrtkey, wrtstrength) # Write content weighting = (0, 1)^{N}
