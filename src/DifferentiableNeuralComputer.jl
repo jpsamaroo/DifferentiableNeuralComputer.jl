@@ -21,9 +21,9 @@ struct DNC
     MemMat       # R^{N*W}
     LinkMat      # R^{N*N}
     readWts      # Array of R^{W}
-    wrtWt        # (0 --> 1)^{N}
-    usageVec     # (0 --> 1)^{N}
-    precedenceWt # (0 --> 1)^{N}
+    wrtWt        # (0, 1)^{N}
+    usageVec     # (0, 1)^{N}
+    precedenceWt # (0, 1)^{N}
 end
 
 function (dnc::DNC)(readkeys, readstrengths, wrtkey, wrtstrength, eraseVec, wrtVec, freeGt, allocGt, wrtGt, readmodes)
@@ -33,18 +33,21 @@ function (dnc::DNC)(readkeys, readstrengths, wrtkey, wrtstrength, eraseVec, wrtV
     dnc.usageVec = (dnc.usageVec .+ dnc.wrtWt .- dnc.usageVec .* dnc.wrtWt) .* memRetVec
     freelist = sortperm(dnc.usageVec)  # Z^{N}
     allocWt = zeros(dnc.usageVec)
-    @. allocWt[freelist] = (1 - dnc.usageVec[Ø]) * cumprod([1; dnc.usageVec[Ø]][1:end-1])  # (0 --> 1)^{N}
+    @. allocWt[freelist] = (1 - dnc.usageVec[Ø]) * cumprod([1; dnc.usageVec[Ø]][1:end-1])  # (0, 1)^{N}
 
     # writing
-    wrtcntWt = memprobdistrib(dnc.MemMat, wrtkey, wrtstrength) # Write content weighting = (0 --> 1)^{N}
+    wrtcntWt = memprobdistrib(dnc.MemMat, wrtkey, wrtstrength) # Write content weighting = (0, 1)^{N}
     dnc.wrtWt .= wrtGt * (allocGt * allocWt + (1 - allocGt)*wrtcntWt)
-    @. dnc.MemMat = dnc.MemMat * (ones(dnc.MemMat) - dnc.wrtWt*eraseVec') + dnc.wrtWt*wrtVec'
+    @. dnc.MemMat *= (ones(dnc.MemMat) - dnc.wrtWt*eraseVec') #  First we erase...
+    @. dnc.MemMat += dnc.wrtWt*wrtVec' # Then we write.
 
     # temporal linkage
     eye = Matrix{Float32}(I, size(dnc.LinkMat)...)
-    @. dnc.LinkMat = (1 - eye) * ((1 - dnc.wrtWt - dnc.wrtWt') * dnc.LinkMat + dnc.wrtWt * dnc.precedenceWt')
+    prevlinkscale = @. 1 - dnc.wrtWt - dnc.wrtWt'
+    newlink = @. dnc.wrtWt * dnc.precedenceWt'
+    @. dnc.LinkMat = (1 - eye) * (prevlinkscale * dnc.LinkMat + newlink)
 
-    precedenceWt = (1 - sum(dnc.wrtWt)) .* precedenceWt .+ dnc.wrtWt
+    dnc.precedenceWt = (1 - sum(dnc.wrtWt)) .* dnc.precedenceWt .+ dnc.wrtWt
 
     # reading
     forwardWts = [dnc.LinkMat * readWt for readWt in dnc.readWts]
