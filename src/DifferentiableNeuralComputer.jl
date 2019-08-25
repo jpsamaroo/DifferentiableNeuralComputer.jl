@@ -17,6 +17,8 @@ function memprobdistrib(M, k, β)
     out = softmax(out)
 end
 
+oneplus(x::AbstractVecOrMat) = log.(exp.(x) .+ 1)
+
 struct DNC
     MemMat       # R^{N*W}
     LinkMat      # R^{N*N}
@@ -24,6 +26,33 @@ struct DNC
     wrtWt        # (0, 1)^{N}
     usageVec     # (0, 1)^{N}
     precedenceWt # (0, 1)^{N}
+end
+
+function interfacedisect(interfaceVec, writeHeads, wordSize, readHeads)
+    demarcations = cumsum([0,                           # Starting Index
+                    readHeads*wordSize,                 # read keys
+                    readHeads,                          # read strengths
+                    writeHeads*wordSize,                # write keys
+                    writeHeads,                         # write strengths
+                    writeHeads*wordSize,                # erase vectors
+                    writeHeads*wordSize,                # write vectors
+                    readHeaads,                         # free gates
+                    writeHeads,                         # allocation gates
+                    writeHeads,                         # write gates
+                    readHeads * (1 + 2* writeHeads)     # read modes
+                    ])
+
+
+    readkeys       =          interfaceVec[demarcations[1]+1:demarcations[2]]
+    readstrengths  =  oneplus(interfaceVec[demarcations[2]+1:demarcations[3]])
+    writekeys      =          interfaceVec[demarcations[3]+1:demarcations[4]]
+    writestrengths =  oneplus(interfaceVec[demarcations[4]+1:demarcations[5]])
+    eraseVec       =        σ(interfaceVec[demarcations[5]+1:demarcations[6]])
+    writeVec       =          interfaceVec[demarcations[6]+1:demarcations[7]]
+    freeGts        =        σ(interfaceVec[demarcations[7]+1:demarcations[8]])
+    allocGt        =        σ(interfaceVec[demarcations[8]+1:demarcations[9]])
+    writeGt        =        σ(interfaceVec[demarcations[9]+1:demarcations[10]])
+    readmodes      = softmax(interfaceVec[demarcations[10]+1:demarcations[11]])
 end
 
 function (dnc::DNC)(readkeys, readstrengths, wrtkey, wrtstrength, eraseVec, wrtVec, freeGt, allocGt, wrtGt, readmodes)
