@@ -9,7 +9,7 @@ end
 @treelike DNCLSTMCell
 
 function DNCLSTMCell(in::Integer, hidden::Integer; init=glorot_uniform)
-    DNCLSTMCell([init(hidden, in+2*hidden) for i in 1:4]...,
+    DNCLSTMCell([init(hidden, in) for i in 1:4]...,
                 [zeros(hidden) for i in 1:6]...)
 end
 
