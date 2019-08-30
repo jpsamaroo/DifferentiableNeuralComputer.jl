@@ -1,14 +1,7 @@
 module DifferentiableNeuralComputer
 
-import Flux
-import Zygote
-
 include("DNCLSTM.jl")
+include("Access.jl")
+include("DNC.jl")
 
-struct DNC end
-
-function (dnc::DNC)(x)
-    return x
-end
-
-end # module
+end  # module DifferentiableNeuralComputer
