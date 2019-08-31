@@ -41,9 +41,11 @@ function Access(memorySize=128, wordSize=20, numReadHeads=1)
 
     readWts = rand(Float32, memorySize, numReadHeads)
     fill!(readWts, 1f-6)
+    readWts = param(readWts)
 
     wrtWt = rand(Float32, memorySize)
     fill!(wrtWt, 1f-6)
+    wrtWt = param(wrtWt)
 
     usageVec = zeros(Float32, memorySize)
     fill!(usageVec, 1f-6)
@@ -106,13 +108,13 @@ function (access::Access)(interfaceVec::AbstractArray)
 
     interface = interfacedisect(interfaceVec, access.wordSize, access.numReadHeads)
 
-    memRetVec = prod(1 .- interface[:freeGts]' .* access.readWts, dims=2)  # Memory Retention Vector = [0, 1]^{N}
+    memRetVec = Tracker.collect(prod(1 .- interface[:freeGts]' .* access.readWts, dims=2))  # Memory Retention Vector = [0, 1]^{N}
     access.usageVec = (access.usageVec .+ access.wrtWt .- access.usageVec .* access.wrtWt) .* memRetVec
 
 
     ## Generalize it for the multiple write heads
     allocWt = zero(access.usageVec)
-    freelist = sortperm(access.usageVec[:, 1])  # Z^{N}
+    freelist = sortperm(access.usageVec[:, 1]) # Z^{N}
     allocWt[freelist] = (1 .- access.usageVec[freelist]) .* cumprod([1; access.usageVec[freelist]][1:end-1])  # (0, 1)^{N}
 
     # writing

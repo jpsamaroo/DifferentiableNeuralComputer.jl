@@ -16,3 +16,10 @@ zer = zeros(seq_len, seq_width)
 
 final_i_data = hcat(seq', zer')
 final_o_data = hcat(zer', seq')
+
+
+
+
+###################
+#@time allocWt * interface[:allocGts] + wrtcntWt * (1 .- interface[:allocGts])'
+#@time interface[:allocGts]' .* allocWt + (1 .- interface[:allocGts])' .* wrtcntWt

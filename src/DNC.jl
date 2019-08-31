@@ -7,8 +7,8 @@ using Flux
 mutable struct DNC
     controller # Find and update its grad
     access::Access
-    interfaceVecWts::Array{Float32, T} where T # Find and update its grad
-    outputWts::Array{Float32, } # Find and update its grad
+    interfaceVecWts#::Array{Float32, T} where T # Find and update its grad
+    outputWts#::Array{Float32, } # Find and update its grad
     readVecWts # Find and update its grad
 end
 
@@ -27,9 +27,9 @@ function DNC(memory_size=16, word_size=16, num_read_heads=4, num_write_heads=1,
     controller = LSTM(controller_input_size, controller_output_size)
     access = Access(memory_size, word_size, num_read_heads)
 
-    interfaceVecWts = Float32.(rand(dist, interface_vec_dimensions, controller_output_size))
-    outputWts = Float32.(rand(dist, output_size, controller_output_size))
-    readVecWts = Float32.(rand(dist, output_size, num_read_heads*word_size))
+    interfaceVecWts = param(Float32.(rand(dist, interface_vec_dimensions, controller_output_size)))
+    outputWts = param(Float32.(rand(dist, output_size, controller_output_size)))
+    readVecWts = param(Float32.(rand(dist, output_size, num_read_heads*word_size)))
     DNC(controller, access, interfaceVecWts, outputWts, readVecWts)
 end
 
